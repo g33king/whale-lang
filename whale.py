@@ -35,7 +35,7 @@ def tokeIt(code):
 		else:
 			if code[num] == 'var':
 				continue
-			if code[num] == 'print':
+			elif code[num] == 'print':
 				tokens.append('print')
 			elif code[num][0] == "'" or code[num][0] == '"':
 				code[num] = code[num][1:]
@@ -59,13 +59,16 @@ def varsComp(tokens, vars):
 	isVar = 0
 	for num in range(len(tokens)):
 		if isVar > 0:
-			vars.append([tokens[num], tokens[num+1]])
+			vars.append(tokens[num])
 			if isVar == 1:
-				for x in range(len(tokens)):
-					if vars[x][0] == tokens[num]:
-						tokens[num] = vars[x][0]
-			if isVar ==2:
-				isVar == 0
+				for x in range(len(vars)):
+					if vars[x] == tokens[num] and not tokens[num - 1] == 'var':
+						tokens[num] = vars[x]
+						print('var declaration')
+					print(tokens[num])
+			if isVar == 2:
+				isVar = 0
+				vars.append(';')
 				continue
 			else:
 				isVar +=1
@@ -74,12 +77,12 @@ def varsComp(tokens, vars):
 			if tokens[num] == 'var':
 				isVar = 1
 				continue
-	return [vars, tokens]
-	
-def comp(gg):
-	print(varsComp(gg, vars))
+	return vars
+
+def comp(tokens):
+	tokens = tokeIt(_code)
+	print(tokens)
+	print(varsComp(tokens, vars))
 
 #start the script
-tokens = tokeIt(_code)
-print(tokens)
 comp(tokens)
