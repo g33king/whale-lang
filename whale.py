@@ -46,7 +46,7 @@ def tokeIt(code):
 				tokens.append(code[num])
 				tokens.append(code[num+2][:len(code[num+2])-1])
 				var = 1
-			 #להמשיך אותו דבר עם מילים אחרות
+			 #keep doing this about other keywords
 			 
 			else:
 				tokens.append(code[num])
