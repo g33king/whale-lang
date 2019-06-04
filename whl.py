@@ -99,10 +99,12 @@ class Lexer:
                 else: tokens.append(Token(TTInt, int(num)))
             if self.current_char != None and self.current_char in "'" + '"':
                 tokens.append(Token(TTStr, self.make_str)
-            if self.current_char == '&':
-                tokens.append(self.call_var)
+            if self.current_char == '$':
+                tokens.append(self.call_var())
+                self.advance()
             if self.current_char + self.text[self.pos+1] + self.text[self.pos+2] == 'var':
-                tokens.append()
+                tokens.append(self.declerate_var())
+                self.advance()
         return tokens
     
     def make_num(self):
@@ -145,7 +147,6 @@ class Lexer:
         pos_start = self.pos
         var_type = ''
         var_name = ''
-        var_value = ''
         for num in range(4): 
             self.advance() # advance after var(
         while self.current_char != None and self.current_char != ')':
@@ -160,18 +161,9 @@ class Lexer:
             else:
                 if self.current_char == ';':
                     self.vars.append(Var(var_name, var_type))
-                    break
-                elif self.current_char == '=':
-                    self.advance()
-                    if self.current_char != None and self.current_char in DIGITS:
-                        isFloat, number = self.make_num()
-                        if isFloat and var_type == 'Float':
-                            var_value = float(number)
-                        elif not isFloat and var_type == 'Int': var_value = int(number)
-                        else: print(ErrorClass("The type you wrote and the value doesnt match each other", pos_start, self.pos))
-                    elif self.current_char != None and self.current_char in '"' + "'": var_value = self.make_str()
-                    else: print(ErrorClass("You need to tell what is the value or to remove the equals sign", pos_start, self.pos))
+                    return Var(var_name, var_type)
         else: print(ErrorClass(f'There isnt var type as {var_type}', pos_start, self.pos))
+        return ErrorClass("Something went wrong", pos_start, self.pos)
 
 def compile(code):
     lex = Lexer(code)
