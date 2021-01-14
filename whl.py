@@ -1,174 +1,221 @@
 
+#region constants
 DIGITS = "0123456789"
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 alphabet = "abcdefghijklmnopqrstuvwxyz"
+operators = "^*/%+-="
+quotes = '"' + "'"
 
-class Token:
-    def __init__(self, type_, value=None, posStart=None, posEnd=None):
-        self.type = type_
-        self.value = value
-        self.posStart = posStart
-        self.posEnd = posEnd
-    def __repr__(self):
-        if self.value: return f'{self.type}:{self.value}'
-        return f'{self.type}'
+TTSTR = "STRING"
+TTINT = "INT"
+TTFLOAT = "FLOAT"
+TTCOM = "COMMENT"
+TTVAR = "VAR"
+TTCRVAR = "CREATE VAR"
+TTOP = "OPERATOR"
+TTPRINT = "PRINT"
+TTIF = "IF"
+TTELIF = "ELIF"
+TTELSE = "ELSE"
+TTENDLINE = "END LINE"
 
-class TokenType:
-    def __init__(self,type_):
-        self.type = type_
-    def __repr__(self):
-        return f'{self.type}'
+VAR_VALUES = [TTSTR, TTINT, TTFLOAT]
+#endregion
+
+vars = []
+
 
 class Var:
-    def __init__(self, name, type_, value=None):
+    def __init__(self, name, value=None):
         self.name = name
-        self.type = type_
         self.value = value
 
     def __repr__(self):
         return f'{self.value}'
 
-class ErrorClass:
-    def __init__(self, error_detailes, pos_start, pos_end):
-        self.error_detailes = error_detailes
-        self.pos_start = pos_start
-        self.pos_end = pos_end
-    
-    def __repr__():
-        return f'ERROR: {self.error_detailes} from: {self.pos_start} to: {self.pos_end)'
 
-TTKeyWord = TokenType("KeyWord")
-TTIdentifier = TokenType("Identifier")
-TTEq = TokenType("EQ")
-TTPlus = TokenType("Plus")
-TTMinus = TokenType("Minus")
-TTMul = TokenType("Multiply")
-TTDiv = TokenType("Divide")
-TTLparen = TokenType("(")
-TTRparen = TokenType(")")
-TTInt = TokenType("Int")
-TTFloat = TokenType("Float")
-TTStr = TokenType("String")
-TTVarCall = TokenType("Called Var")
-TTVarDec = TokenType("Declerated Var")
+class Token:
+    def __init__(self, type_, value=None):
+        self.type = type_
+        self.value = value
 
-VTypes = [
-    "String",
-    "Int",
-    "Float",
-    "Boolean"
-]
+    def __repr__(self):
+        return f'Type: {self.type} Value: {self.value}'
 
+
+# making a list of tokens, for the executioner to recognize and work with
 class Lexer:
     def __init__(self, text):
-        self.pos = -1
-        self.text = text
-        self.current_char = None
-        self.advance()
-        self.vars = []
-    
-    def advance(self):
-        self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
+        self.code = text
+        self.tokens = []
+        self.analyze()
 
-    def make_tokens(self):
-        tokens = []
-        while self.current_char != None:
-            if self.current_char in ' \t': self.advance()
-            if self.current_char == '+':
-                tokens.append(Token(TTPlus, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char == '-':
-                tokens.append(Token(TTMinus, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char == '*':
-                tokens.append(Token(TTMul, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char == '/':
-                tokens.append(Token(TTDiv, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char == '(':
-                tokens.append(Token(TTLparen, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char == ')':
-                tokens.append(Token(TTRparen, None, self.pos, self.pos))
-                self.advance()
-            if self.current_char != None and self.current_char in DIGITS:
-                isFloat, num = make_num
-                if isFloat: tokens.append(Token(TTFloat, float(num)))
-                else: tokens.append(Token(TTInt, int(num)))
-            if self.current_char != None and self.current_char in "'" + '"':
-                tokens.append(Token(TTStr, self.make_str)
-            if self.current_char == '$':
-                tokens.append(self.call_var())
-                self.advance()
-            if self.current_char + self.text[self.pos+1] + self.text[self.pos+2] == 'var':
-                tokens.append(self.declerate_var())
-                self.advance()
-        return tokens
-    
-    def make_num(self):
-        num_str = ''
-        Float = False
-        pos_start = self.pos
-        while self.current_char != None and self.current_char in DIGITS + '.' and self.pos < len(self.text):
-            if self.current_char == '.': Float = True
-            num_str += self.current_char
-            self.advance()
-        pos_end = self.pos
-        return Float, num_str
-    
-    def make_str(self):
-        str_str = ''
-        self.advance()
-        pos_start = self.pos
-        while self.current_char != None and not self.current_char in '"' + "'" and self.pos < len(self.text):
-            str_str += self.current_char
-            self.advance()
-        pos_end = self.pos
-        self.advance()
-        return str_str
-    
-    def call_var(self):
-        pos_start = self.pos
-        self.advance() # because of the $
-        var_name = ''
-        while self.current_char != None and self.current_char in ALPHABET + alphabet + '_-' + DIGITS and self.pos < len(self.text):
-            var_name += self.current_char
-            self.advance()
-        pos_end = self.pos
-        self.advance()
-        for t in len(self.vars):
-            if var_name == self.vars[t].name:
-                var_type = self.vars[t].type_
-                return Token(TTVarCall, f'{var_type} {var_name}', pos_start, pos_end)
-    
-    def declerate_var(self):
-        pos_start = self.pos
-        var_type = ''
-        var_name = ''
-        for num in range(4): 
-            self.advance() # advance after var(
-        while self.current_char != None and self.current_char != ')':
-            var_type += self.current_char
-            self.advance()
-        if var_type in VTypes:
-            self.advance() # advance after )
-            while self.current_char != None and self.current_char in DIGITS + ALPHABET + alphabet + '_-':
-                var_name += self.current_char
-                self.advance()
-            if var_name in self.vars: print(Error(f'There is already var named {var_name}', pos_start, self.pos))
+    def analyze(self):
+
+        for line in self.code.split("\n"):
+            type_ = ""
+            str_out = ""
+            str_token = ""
+
+            #region comment
+            if line[0] == "#" and type_ == "":
+                type_ = TTCOM
+            if type_ == TTCOM:
+                type_ = ""
+                continue
+            #endregion
+
+            for word in line.split():
+                #region string
+                # if still string
+                if type_ == TTSTR:
+                    str_out += word
+                # starting string
+                elif not type_ == TTSTR and word[0] in quotes:
+                    type_ = TTSTR
+                    str_token = word[0]
+                    str_out += word[1:]
+                # ending the string
+                if type_ == TTSTR and word[len(word) - 1] == str_token and not str_out[len(str_out) - 5] == "/":
+                    str_out = str_out[:len(str_out)-1]
+                    str_token = ""
+                    type_ = ""
+                if type_ == TTSTR:
+                    str_out += " "
+                if not type_ == TTSTR and str_out != "":
+                    self.tokens.append(Token(TTSTR, str_out))
+                    str_out = ""
+                    continue
+                #endregion
+
+                #region int
+                if type_ == "" and word[0] in DIGITS:
+                    type_ = TTINT
+                if type_ == TTINT:
+                    dec = 0
+                    num_out = 0
+                    for digit in word:
+                        if digit == ".":
+                            type_ = TTFLOAT
+                            dec = 0.1
+                        elif type_ == TTINT:
+                            num_out *= 10
+                            num_out += int(digit)
+
+                        if type_ == TTFLOAT and digit != ".":
+                            num_out += int(digit) * dec
+                            dec /= 10
+                    self.tokens.append(Token(type_, num_out))
+                    type_ = ""
+                    continue
+                #endregion
+
+                #region var
+                if type_ == "" and word[0] == "$":
+                    # if the var is in the memory
+                    for v in vars:
+                        if v.name == word[1:]:
+                            type_ = TTVAR
+                            self.tokens.append(Token(type_, v))
+                    # if the var wasn't found in the memory
+                    if type_ != TTVAR:
+                        type_ = TTCRVAR
+                        self.tokens.append(Token(type_, word[1:]))
+                        type_ = ""
+                #endregion
+
+                #region operators
+                if type_ == "" and len(word) == 1 and word in operators:
+                    self.tokens.append(Token(TTOP, word))
+                #endregion
+
+                if type_ == "" and word == "print":
+                    self.tokens.append(Token(TTPRINT))
+
+            self.tokens.append(Token(TTENDLINE))
+        print(self.tokens)
+
+class Exp:
+    def __init__(self, tokens, type_):
+        self.type = type_
+        self.tokens = tokens
+
+class Executioner:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.execute()
+
+    def expression(self, token_array):
+        todo = []
+        for t in token_array:
+            if t.type == TTVAR:
+                todo.append(self.find_var(t.value).value)
             else:
-                if self.current_char == ';':
-                    self.vars.append(Var(var_name, var_type))
-                    return Var(var_name, var_type)
-        else: print(ErrorClass(f'There isnt var type as {var_type}', pos_start, self.pos))
-        return ErrorClass("Something went wrong", pos_start, self.pos)
+                todo.append(t)
 
-def compile(code):
-    lex = Lexer(code)
-    print(lex.make_tokens())
+        for t in todo:
+            # if the symbol is before in the order of actions in math
+            if t.type == TTOP and (type(todo[todo.index(t)-1]) is not Token or operators.index(todo[todo.index(t)-1].value) <= operators.index(t.value)):
+                todo[todo.index(t)-1:todo.index(t)+2] = Exp([todo[todo.index(t)-1], todo[todo.index(t)+1]], t.value)
+            elif t.type == TTOP:
+                todo[todo.index(t):todo.index(t)+2] = Exp([todo[todo.index(t)-1], todo[todo.index(t)+1]], t.value)
+                todo[todo.index(t)-1].tokens[1] = todo[todo.index(t)]
+
+        calc_exp(todo)
+
+
+    def calc_exp(self, todo):
+        out = 0
+        for t in todo.tokens:
+            if type(t) == Exp:
+                todo[todo.index(t)] = self.calc_exp(t)
+                out = self.calc_exp(t)
+            else:
+                if t.type in operators:
+                    if t.type == "^":
+                        out = t.tokens[0].value ** t.tokens[1].value
+                    elif t.type == "*":
+                        out = t.tokens[0].value * t.tokens[1].value
+                    elif t.type == "/":
+                        out = t.tokens[0].value / t.tokens[1].value
+                    elif t.type == "+":
+                        out = t.tokens[0].value + t.tokens[1].value
+                    elif t.type == "-":
+                        out = t.tokens[0].value - t.tokens[1].value
+        return out
+
+    def find_var(self, search, is_value=False):
+        for v in vars:
+            if (not is_value and v.name == search) or (is_value and v.value == search):
+                return v
+        return None
+
+    def execute(self):
+        i = 0
+        t = None
+
+        while i < len(self.tokens):
+            j = None
+            for j in self.tokens[i:]:
+                if j.type == TTENDLINE:
+                    break
+            endline = self.tokens.index(j)
+            with t as self.tokens[i]:
+                if t.type == TTCRVAR:
+                    if self.tokens[i+1].value == "=":
+                        vars.append(Var(t.value, self.expression(self.tokens[i+2:endline])))
+                    elif self.tokens[i+1].type == TTENDLINE:
+                        vars.append(Var(t.value))
+                if t.type == TTPRINT:
+                    print(str(self.expression(self.tokens[i+1:endline])))
+            i = endline
+
+
+
+
+def comp(code):
+    exec = Executioner(Lexer(code).tokens)
 
 while True:
     text = input("whale >> ")
-    compile(text)
+    comp(text)
