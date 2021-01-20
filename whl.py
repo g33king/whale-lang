@@ -1,18 +1,19 @@
-
-#region constants
+# region constants
 DIGITS = "0123456789"
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 alphabet = "abcdefghijklmnopqrstuvwxyz"
-operators = "^*/%+-="
+operators = "^*/%+-"
 quotes = '"' + "'"
 
 TTSTR = "STRING"
 TTINT = "INT"
 TTFLOAT = "FLOAT"
-TTCOM = "COMMENT"
+TTBOOL = "BOOL"
 TTVAR = "VAR"
 TTCRVAR = "CREATE VAR"
+TTCOM = "COMMENT"
 TTOP = "OPERATOR"
+TTBOOLOP = "BOOL OP"
 TTPRINT = "PRINT"
 TTIF = "IF"
 TTELIF = "ELIF"
@@ -20,15 +21,30 @@ TTELSE = "ELSE"
 TTENDLINE = "END LINE"
 
 VAR_VALUES = [TTSTR, TTINT, TTFLOAT]
-#endregion
+# endregion
 
 vars = []
 
 
+def get_type(value):
+    if str(value)[0] in DIGITS + "-":
+        for digit in str(value):
+            if digit == '.':
+                return TTFLOAT
+        return TTINT
+    elif str(value) in ["True", "False"]:
+        return TTBOOL
+    else:
+        return TTSTR
+
+
 class Var:
-    def __init__(self, name, value=None):
+    def __init__(self, name, value=None, type_=None):
         self.name = name
         self.value = value
+        self.type = type_
+        if type_ is None and value is not None:
+            self.type = get_type(self.value)
 
     def __repr__(self):
         return f'{self.value}'
@@ -41,6 +57,25 @@ class Token:
 
     def __repr__(self):
         return f'Type: {self.type} Value: {self.value}'
+
+
+# expression, and can calculate itself
+class Exp:
+    def __init__(self, tokens, type_):
+        self.type = type_
+        self.tokens = tokens
+
+    def calc(self):
+        if self.type == "^":
+            return self.tokens[0].value ** self.tokens[1].value
+        elif self.type == "*":
+            return self.tokens[0].value * self.tokens[1].value
+        elif self.type == "/":
+            return self.tokens[0].value / self.tokens[1].value
+        elif self.type == "+":
+            return self.tokens[0].value + self.tokens[1].value
+        elif self.type == "-":
+            return self.tokens[0].value - self.tokens[1].value
 
 
 # making a list of tokens, for the executioner to recognize and work with
@@ -57,16 +92,16 @@ class Lexer:
             str_out = ""
             str_token = ""
 
-            #region comment
+            # region comment
             if line[0] == "#" and type_ == "":
                 type_ = TTCOM
             if type_ == TTCOM:
                 type_ = ""
                 continue
-            #endregion
+            # endregion
 
             for word in line.split():
-                #region string
+                # region string
                 # if still string
                 if type_ == TTSTR:
                     str_out += word
@@ -77,7 +112,7 @@ class Lexer:
                     str_out += word[1:]
                 # ending the string
                 if type_ == TTSTR and word[len(word) - 1] == str_token and not str_out[len(str_out) - 5] == "/":
-                    str_out = str_out[:len(str_out)-1]
+                    str_out = str_out[:len(str_out) - 1]
                     str_token = ""
                     type_ = ""
                 if type_ == TTSTR:
@@ -86,10 +121,10 @@ class Lexer:
                     self.tokens.append(Token(TTSTR, str_out))
                     str_out = ""
                     continue
-                #endregion
+                # endregion
 
-                #region int
-                if type_ == "" and word[0] in DIGITS:
+                # region int
+                if type_ == "" and word[0] in DIGITS + "-":
                     type_ = TTINT
                 if type_ == TTINT:
                     dec = 0
@@ -98,6 +133,8 @@ class Lexer:
                         if digit == ".":
                             type_ = TTFLOAT
                             dec = 0.1
+                        elif digit == "-":
+                            continue
                         elif type_ == TTINT:
                             num_out *= 10
                             num_out += int(digit)
@@ -105,12 +142,14 @@ class Lexer:
                         if type_ == TTFLOAT and digit != ".":
                             num_out += int(digit) * dec
                             dec /= 10
+                    if word[0] == "-":
+                        num_out *= -1
                     self.tokens.append(Token(type_, num_out))
                     type_ = ""
                     continue
-                #endregion
+                # endregion
 
-                #region var
+                # region var
                 if type_ == "" and word[0] == "$":
                     # if the var is in the memory
                     for v in vars:
@@ -122,23 +161,28 @@ class Lexer:
                         type_ = TTCRVAR
                         self.tokens.append(Token(type_, word[1:]))
                         type_ = ""
-                #endregion
+                    type_ = ""
+                # endregion
 
-                #region operators
-                if type_ == "" and len(word) == 1 and word in operators:
+                # region operators
+                if type_ == "" and ((len(word) == 1 and word in operators + '=') or (len(word) == 2 and word[1] == '=' and word[0] in operators)):
                     self.tokens.append(Token(TTOP, word))
+                # endregion
+
+                # region bool operators
+                if type_ == "" and len(word) == 2 and word[1] == "=" and not word[0] in operators:
+                    self.tokens.append(Token(TTBOOLOP, word))
                 #endregion
 
-                if type_ == "" and word == "print":
-                    self.tokens.append(Token(TTPRINT))
-
+                # region saved words
+                if type_ == "":
+                    if word == "print":
+                        self.tokens.append(Token(TTPRINT))
+                    elif word == "if":
+                        self.tokens.append(Token(TTIF))
+                #endregion
             self.tokens.append(Token(TTENDLINE))
         print(self.tokens)
-
-class Exp:
-    def __init__(self, tokens, type_):
-        self.type = type_
-        self.tokens = tokens
 
 class Executioner:
     def __init__(self, tokens):
@@ -149,40 +193,22 @@ class Executioner:
         todo = []
         for t in token_array:
             if t.type == TTVAR:
-                todo.append(self.find_var(t.value).value)
+                var = self.find_var(t.value.name)
+                if var is not None:
+                    todo.append(Token(var.type, var.value))
+                else:
+                    print(f'Error! There is no var named {t.value}')
             else:
                 todo.append(t)
 
-        for t in todo:
-            # if the symbol is before in the order of actions in math
-            if t.type == TTOP and (type(todo[todo.index(t)-1]) is not Token or operators.index(todo[todo.index(t)-1].value) <= operators.index(t.value)):
-                todo[todo.index(t)-1:todo.index(t)+2] = Exp([todo[todo.index(t)-1], todo[todo.index(t)+1]], t.value)
-            elif t.type == TTOP:
-                todo[todo.index(t):todo.index(t)+2] = Exp([todo[todo.index(t)-1], todo[todo.index(t)+1]], t.value)
-                todo[todo.index(t)-1].tokens[1] = todo[todo.index(t)]
-
-        calc_exp(todo)
-
-
-    def calc_exp(self, todo):
-        out = 0
-        for t in todo.tokens:
-            if type(t) == Exp:
-                todo[todo.index(t)] = self.calc_exp(t)
-                out = self.calc_exp(t)
-            else:
-                if t.type in operators:
-                    if t.type == "^":
-                        out = t.tokens[0].value ** t.tokens[1].value
-                    elif t.type == "*":
-                        out = t.tokens[0].value * t.tokens[1].value
-                    elif t.type == "/":
-                        out = t.tokens[0].value / t.tokens[1].value
-                    elif t.type == "+":
-                        out = t.tokens[0].value + t.tokens[1].value
-                    elif t.type == "-":
-                        out = t.tokens[0].value - t.tokens[1].value
-        return out
+        for op in operators:
+            for t in todo:
+                if t.type == TTOP and t.value == op:
+                    operands = [todo[todo.index(t) - 1], todo[todo.index(t) + 1]]
+                    del todo[todo.index(operands[0])+1:todo.index(operands[1])+1]
+                    express = Exp(operands, op).calc()
+                    todo[todo.index(operands[0])] = Token(get_type(express), express)
+        return todo[0]
 
     def find_var(self, search, is_value=False):
         for v in vars:
@@ -200,22 +226,30 @@ class Executioner:
                 if j.type == TTENDLINE:
                     break
             endline = self.tokens.index(j)
-            with t as self.tokens[i]:
+
+            for t in self.tokens[i:endline]:
                 if t.type == TTCRVAR:
-                    if self.tokens[i+1].value == "=":
-                        vars.append(Var(t.value, self.expression(self.tokens[i+2:endline])))
-                    elif self.tokens[i+1].type == TTENDLINE:
+                    if self.tokens[i + 1].value == "=":
+                        value = self.expression(self.tokens[i + 2:endline]).value
+                        vars.append(Var(t.value, value, get_type(value)))
+                    elif self.tokens[i + 1].type == TTENDLINE:
                         vars.append(Var(t.value))
-                if t.type == TTPRINT:
-                    print(str(self.expression(self.tokens[i+1:endline])))
-            i = endline
 
+                elif t.type == TTVAR:
+                    if self.tokens[i+1].value == "=":
+                        vars[vars.index(self.find_var(t.value.name))] = Var(t.value.name, self.expression(self.tokens[i+2:endline]).value, get_type(self.expression(self.tokens[i+2:endline]).value))
+                    elif self.tokens[i+1].type == TTOP and len(self.tokens[i+1].value) == 2:
+                        vars[vars.index(self.find_var(t.value.name))] = Var(t.value.name, Exp([vars[vars.index(self.find_var(t.value.name))], self.expression(self.tokens[i+2:endline])], self.tokens[i+1].value[0]).calc())
 
+                elif t.type == TTPRINT:
+                    print(self.expression(self.tokens[i + 1:endline]))
+            i = endline + 1
 
 
 def comp(code):
     exec = Executioner(Lexer(code).tokens)
 
+
 while True:
-    text = input("whale >> ")
+    text = input("whale >>")
     comp(text)
